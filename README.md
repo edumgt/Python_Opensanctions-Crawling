@@ -1,5 +1,20 @@
 # OpenSanctions 
 
+## 이 저장소 권장 실행 환경 (WSL Ubuntu + Next.js UI)
+
+- 이 저장소의 기본 개발 환경은 **WSL2 기반 Ubuntu**를 권장합니다.
+- UI(`ui/`)는 Next.js 기반이며, **Ubuntu 터미널에서 Node.js 22 LTS**로 실행하는 것을 권장합니다.
+- `ui/package.json`의 Next.js 실행 관련 핵심 모듈(`next`, `react`, `react-dom`, `eslint-config-next`)은 최신 15.x/19.x 계열을 추적하도록 상향했습니다.
+
+### Ubuntu(WSL)에서 UI 실행
+
+```bash
+cd ui
+nvm use   # ui/.nvmrc(22) 기준
+npm install
+npm run dev
+```
+
 ## 사전에 WSL(WSL2) 설치/관리 + 여러 리눅스 배포판 설치 + Docker Desktop(WSL2) 공유 정리
 
 > 기준: Windows 10/11에서 **WSL2**를 사용하는 일반적인 케이스  
