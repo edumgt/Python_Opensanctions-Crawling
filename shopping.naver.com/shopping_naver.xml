@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  네이버 쇼핑 크롤링 결과 XML 스키마 및 샘플 데이터
+  이 파일은 crawler.py의 export_xml() 메서드가 생성하는 XML의 구조를 보여줍니다.
+-->
+<NaverShoppingProducts crawledAt="2026-04-20T07:30:00+00:00" totalCount="5">
+
+  <!--
+    Product 요소 구조:
+    - id (속성): 네이버 쇼핑 상품 고유 ID
+    - Title: 상품명
+    - Price: 가격 (원)
+    - ImageUrl: 상품 이미지 URL
+    - ProductUrl: 상품 상세 페이지 URL
+    - MallName: 판매처(쇼핑몰) 이름
+    - Category: 상품 카테고리
+    - ReviewCount: 리뷰 수
+    - Rating: 평점 (5점 만점)
+    - DeliveryFee: 배송비 정보
+    - Keyword: 검색에 사용된 키워드
+    - CrawledAt: 크롤링 시각 (ISO 8601)
+  -->
+
+  <Product id="sample-001">
+    <Title>삼성전자 갤럭시북4 프로 NT940XGQ-A51A 노트북</Title>
+    <Price>1890000</Price>
+    <ImageUrl>https://shopping-phinf.pstatic.net/main_xxxx/sample1.jpg</ImageUrl>
+    <ProductUrl>https://search.shopping.naver.com/gate.nhn?id=sample-001</ProductUrl>
+    <MallName>삼성전자 공식스토어</MallName>
+    <Category>디지털/가전</Category>
+    <ReviewCount>1523</ReviewCount>
+    <Rating>4.8</Rating>
+    <DeliveryFee>무료배송</DeliveryFee>
+    <Keyword>노트북</Keyword>
+    <CrawledAt>2026-04-20T07:30:00+00:00</CrawledAt>
+  </Product>
+
+  <Product id="sample-002">
+    <Title>LG전자 그램 17 17ZD90SP-GX56K 노트북</Title>
+    <Price>1590000</Price>
+    <ImageUrl>https://shopping-phinf.pstatic.net/main_xxxx/sample2.jpg</ImageUrl>
+    <ProductUrl>https://search.shopping.naver.com/gate.nhn?id=sample-002</ProductUrl>
+    <MallName>LG전자 공식몰</MallName>
+    <Category>디지털/가전</Category>
+    <ReviewCount>892</ReviewCount>
+    <Rating>4.7</Rating>
+    <DeliveryFee>무료배송</DeliveryFee>
+    <Keyword>노트북</Keyword>
+    <CrawledAt>2026-04-20T07:30:00+00:00</CrawledAt>
+  </Product>
+
+  <Product id="sample-003">
+    <Title>애플 맥북 에어 M3 13인치 256GB</Title>
+    <Price>1390000</Price>
+    <ImageUrl>https://shopping-phinf.pstatic.net/main_xxxx/sample3.jpg</ImageUrl>
+    <ProductUrl>https://search.shopping.naver.com/gate.nhn?id=sample-003</ProductUrl>
+    <MallName>Apple 공식몰</MallName>
+    <Category>디지털/가전</Category>
+    <ReviewCount>2156</ReviewCount>
+    <Rating>4.9</Rating>
+    <DeliveryFee>무료배송</DeliveryFee>
+    <Keyword>노트북</Keyword>
+    <CrawledAt>2026-04-20T07:30:00+00:00</CrawledAt>
+  </Product>
+
+  <Product id="sample-004">
+    <Title>레노버 씽크패드 X1 Carbon Gen 12 노트북</Title>
+    <Price>2190000</Price>
+    <ImageUrl>https://shopping-phinf.pstatic.net/main_xxxx/sample4.jpg</ImageUrl>
+    <ProductUrl>https://search.shopping.naver.com/gate.nhn?id=sample-004</ProductUrl>
+    <MallName>레노버 공식스토어</MallName>
+    <Category>디지털/가전</Category>
+    <ReviewCount>456</ReviewCount>
+    <Rating>4.6</Rating>
+    <DeliveryFee>무료배송</DeliveryFee>
+    <Keyword>노트북</Keyword>
+    <CrawledAt>2026-04-20T07:30:00+00:00</CrawledAt>
+  </Product>
+
+  <Product id="sample-005">
+    <Title>ASUS 비보북 S 16 OLED S5606MA-MX051 노트북</Title>
+    <Price>1690000</Price>
+    <ImageUrl>https://shopping-phinf.pstatic.net/main_xxxx/sample5.jpg</ImageUrl>
+    <ProductUrl>https://search.shopping.naver.com/gate.nhn?id=sample-005</ProductUrl>
+    <MallName>ASUS 공식스토어</MallName>
+    <Category>디지털/가전</Category>
+    <ReviewCount>312</ReviewCount>
+    <Rating>4.5</Rating>
+    <DeliveryFee>무료배송</DeliveryFee>
+    <Keyword>노트북</Keyword>
+    <CrawledAt>2026-04-20T07:30:00+00:00</CrawledAt>
+  </Product>
+
+</NaverShoppingProducts>

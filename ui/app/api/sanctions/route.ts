@@ -2,64 +2,79 @@ import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 
 const pool = new Pool({
-  host: process.env.DB_HOST || "db",
+  host: process.env.DB_HOST || "127.0.0.1",
   port: 5432,
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "password",
   database: process.env.DB_NAME || "dev",
 });
 
-// ✅ 상세 필드 포함 인터페이스
-interface SanctionRecord {
-  entity_id: string;
-  name: string;
-  birth_date?: string;
-  place_of_birth?: string;
-  nationality?: string;
-  country?: string;
-  id_number?: string;
-  passport_number?: string;
-  authority?: string;
-  source_url?: string;
-}
-
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim().toLowerCase() || "";
-
-  if (!q) return NextResponse.json([]);
+  const page = Number(searchParams.get("page") || "1");
+  const limit = Number(searchParams.get("limit") || "10");
+  const offset = (page - 1) * limit;
 
   const client = await pool.connect();
   try {
-    const sql = `
+    // ✅ 통계 항상 반환
+    const statsSql = `
       SELECT
-        e.entity_id,
-        MAX(CASE WHEN s.prop = 'name' THEN s.value END) AS name,
-        MAX(CASE WHEN s.prop = 'birthDate' THEN s.original_value END) AS birth_date,
-        MAX(CASE WHEN s.prop = 'birthPlace' THEN s.value END) AS place_of_birth,
-        MAX(CASE WHEN s.prop = 'nationality' THEN s.value END) AS nationality,
-        MAX(CASE WHEN s.prop = 'country' THEN s.value END) AS country,
-        MAX(CASE WHEN s.prop = 'id' THEN s.value END) AS id_number,
-        MAX(CASE WHEN s.prop = 'passportNumber' THEN s.value END) AS passport_number,
-        MAX(CASE WHEN s.prop = 'authority' THEN s.value END) AS authority,
-        MAX(CASE WHEN s.prop = 'sourceUrl' THEN s.value END) AS source_url
-      FROM statement s
-      JOIN statement e ON e.entity_id = s.entity_id
-      WHERE LOWER(s.value) LIKE $1
-         OR LOWER(e.value) LIKE $1
-      GROUP BY e.entity_id
-      ORDER BY name
-      LIMIT 50;
+        (SELECT COUNT(*) FROM public.entity_flattened) AS entity_count,
+        (SELECT COUNT(DISTINCT dataset) FROM public.entity_flattened WHERE dataset IS NOT NULL) AS source_count;
     `;
 
-    const result = await client.query(sql, [`%${q}%`]);
-    return NextResponse.json(result.rows);
+    const statsRes = await client.query(statsSql);
+    const stats = statsRes.rows[0];
+
+    // ✅ 검색어 없을 때: 목록은 비우되 통계만 반환
+    if (!q) {
+      return NextResponse.json({
+        data: [],
+        pagination: { total: 0, page, totalPages: 0 },
+        stats,
+      });
+    }
+
+    const baseSql = `
+      FROM public.entity_flattened
+      WHERE (
+        LOWER(name) LIKE $1 OR
+        LOWER(alias) LIKE $1 OR
+        LOWER(entity_id) LIKE $1 OR
+        LOWER(address) LIKE $1
+      )
+    `;
+    const countSql = `SELECT COUNT(*) AS total ${baseSql}`;
+    const dataSql = `
+      SELECT
+        entity_id, schema, name, alias, first_name, last_name,
+        birth_date, gender, nationality, country, address,
+        passport_number, id_number, source_url,
+        CASE
+          WHEN topics IS NULL OR trim(topics::text) = '' THEN ARRAY[]::text[]
+          WHEN left(topics::text, 1) = '{' AND right(topics::text, 1) = '}' THEN topics::text[]
+          ELSE string_to_array(replace(topics::text, '"', ''), ',')
+        END AS topics
+      ${baseSql}
+      ORDER BY name
+      LIMIT $2 OFFSET $3;
+    `;
+
+    const countRes = await client.query(countSql, [`%${q}%`]);
+    const total = Number(countRes.rows[0]?.total || 0);
+    const totalPages = Math.ceil(total / limit);
+    const dataRes = await client.query(dataSql, [`%${q}%`, limit, offset]);
+
+    return NextResponse.json({
+      data: dataRes.rows,
+      pagination: { total, page, totalPages },
+      stats,
+    });
   } catch (err) {
-    console.error("❌ Sanction query error:", err);
-    return NextResponse.json(
-      { error: (err as Error).message },
-      { status: 500 }
-    );
+    console.error("❌ Query failed:", err);
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   } finally {
     client.release();
   }

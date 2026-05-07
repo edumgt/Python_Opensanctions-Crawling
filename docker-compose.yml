@@ -1,70 +1,96 @@
 version: "3.9"
 
 networks:
-  appnet:           
+  appnet:
     driver: bridge
 
 services:
   db:
-    image: postgres:15
-    container_name: opensanctions-db
+    image: postgres:16
     environment:
-      POSTGRES_DB: dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-dev}
     ports:
       - "5432:5432"
-    networks:
-      - appnet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dev}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data   # ✅ 로컬에 DB 저장
+    networks:
+      - appnet
 
   zavod:
     image: ghcr.io/opensanctions/opensanctions:latest
-    container_name: opensanctions-etl
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dev}}
+      ZAVOD_DATABASE_URI: ${ZAVOD_DATABASE_URI:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dev}}
+    volumes:
+      - .:/opensanctions
+    networks:
+      - appnet
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env              # ✅ .env 파일을 자동 로드
-    environment:
-      ZAVOD_DATABASE_URI: postgresql://postgres:password@db:5432/dev
     command: >
       bash -c "
-        echo '🚀 Running Zavod pipeline...' &&
-        zavod crawl datasets/ae/local_terrorists/ae_local_terrorists.yml &&
-        zavod export datasets/ae/local_terrorists/ae_local_terrorists.yml &&
-        zavod load-db datasets/ae/local_terrorists/ae_local_terrorists.yml &&
-        echo '✅ Done. Data written to Postgres.'
+        echo '🚀 Scanning datasets (excluding _ folders, GCS-dependent, ru_nsd_isin, and cz_business_register)...' &&
+        FAILED_FILE=/opensanctions/failed_datasets.md &&
+        echo '# ❌ Failed Datasets (Zavod Batch Run)' > $$FAILED_FILE &&
+        echo '' >> $$FAILED_FILE &&
+
+        for file in $(find /opensanctions/datasets -type f -name '*.yml' ! -path '*/_*/*'); do
+          BASENAME=$(basename $$file)
+          
+          
+          if [[ $$BASENAME == 'ru_nsd_isin.yml' || $$BASENAME == 'cz_business_register.yml' || $$BASENAME == 'us_corpwatch.yml' || $$BASENAME == 'lv_business_register.yml' || $$BASENAME == 'lv_business_register.yml' || $$BASENAME == 'md_companies.yml' || $$BASENAME == 'gb_fca_firds.yml' || $$BASENAME == 'cy_companies.yml' ]]; then
+            echo '🚫 Skipping excluded dataset: '$$file;
+            continue;
+          fi
+
+          # ⚠️ 내부 데이터(GCS) 의존성 검사
+          if grep -q 'fetch_internal_data' $$file; then
+            echo '⚠️  Skipping GCS-dependent dataset: '$$file;
+            continue;
+          fi
+
+          echo '⚙️  Running ETL for: '$$file;
+          (zavod crawl $$file && zavod export $$file && zavod load-db $$file);
+
+          if [ $$? -eq 0 ]; then
+            echo '✅ Completed: '$$file;
+          else
+            echo '❌ Failed: '$$file;
+            echo '- '$$file >> $$FAILED_FILE;
+          fi
+        done &&
+
+        echo '' >> $$FAILED_FILE &&
+        echo '---' >> $$FAILED_FILE &&
+        echo '🕒 Run completed on: '$(date) >> $$FAILED_FILE &&
+
+        echo '🎉 All datasets processed. Failures logged in failed_datasets.md (host directory)'
       "
-    volumes:
-      - ./datasets:/opensanctions/datasets
-      - ./data:/opensanctions/data
-      - ./zavod:/opensanctions/zavod
-    networks:
-      - appnet
 
   web:
     build:
       context: ./ui
-      dockerfile: Dockerfile
-    container_name: zavod-ui
+    environment:
+      ZAVOD_DATABASE_URI: ${ZAVOD_DATABASE_URI:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dev}}
+      ZAVOD_ALLOW_UNAUTHENTICATED: ${ZAVOD_ALLOW_UNAUTHENTICATED:-true}
+    ports:
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "80:3000"
     networks:
       - appnet
-    environment:
-      ZAVOD_DATABASE_URI: postgresql://postgres:password@db:5432/dev
-      ZAVOD_ALLOW_UNAUTHENTICATED: "true"
-      LANG: en_US.UTF-8
-      TZ: UTC
-    working_dir: /app
-    command: npm run start
+
+volumes:
+  postgres_data:

@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# 네이버 쇼핑 상품 크롤러 데이터셋 설정
+# ---------------------------------------------------------------------------
+# 이 YAML 파일은 zavod 프레임워크의 데이터셋 정의 형식을 따릅니다.
+# 실행: zavod crawl shopping.naver.com/shopping_naver.yml
+# ---------------------------------------------------------------------------
+
+title: Naver Shopping Product Crawler
+entry_point: crawler.py
+prefix: naver-shopping
+ci_test: false
+
+coverage:
+  frequency: daily
+  start: 2026-04-20
+
+summary: >
+  네이버 쇼핑(shopping.naver.com) 홈페이지에서 상품 정보를 수집하는 크롤러입니다.
+  검색 키워드 기반으로 상품명, 가격, 판매처, 리뷰 수, 평점 등을 수집합니다.
+
+description: |
+  ## 개요
+  네이버 쇼핑은 한국 최대 온라인 쇼핑 비교 플랫폼으로, 다양한 판매처의 상품 정보를
+  통합 검색할 수 있습니다.
+
+  ## 크롤링 방식
+  1. **API 기반 크롤링** (권장): 네이버 쇼핑 검색 API를 호출하여 JSON 응답을 파싱
+  2. **HTML 파싱 기반 크롤링**: SSR(Server-Side Rendered) 페이지에서 상품 정보 추출
+
+  ## 수집 데이터
+  - 상품명 (productTitle)
+  - 가격 (price)
+  - 이미지 URL (imageUrl)
+  - 상품 링크 (productUrl)
+  - 판매처 (mallName)
+  - 카테고리 (category)
+  - 리뷰 수 (reviewCount)
+  - 평점 (rating)
+  - 배송비 (deliveryFee)
+
+  ## 주의사항
+  - robots.txt 및 이용약관을 준수하여 적절한 딜레이를 두고 요청합니다.
+  - 수집한 데이터는 학습·연구 목적으로만 사용해야 합니다.
+  - 네이버 API 구조 변경 시 파서 업데이트가 필요할 수 있습니다.
+
+publisher:
+  name: 네이버 주식회사
+  name_en: Naver Corporation
+  description: |
+    네이버는 대한민국 최대의 인터넷 포털 및 검색 엔진 서비스 제공자입니다.
+    네이버 쇼핑은 다양한 온라인 쇼핑몰의 상품을 비교 검색할 수 있는
+    가격 비교 및 쇼핑 플랫폼입니다.
+  country: kr
+  url: https://shopping.naver.com
+  official: false
+
+tags:
+  - ecommerce
+  - shopping
+  - product
+  - price-comparison
+
+url: https://shopping.naver.com/ns/home
+
+data:
+  url: https://search.shopping.naver.com/api/search/all
+  format: JSON
+  lang: kor
+
+# ---------------------------------------------------------------------------
+# 크롤러 설정 (crawler.py에서 context.dataset.config로 접근)
+# ---------------------------------------------------------------------------
+config:
+  keyword: "인기상품"
+  max_pages: 1
+
+# ---------------------------------------------------------------------------
+# 검색 키워드별 예시 파라미터 (lookups)
+# ---------------------------------------------------------------------------
+lookups:
+  search_params:
+    options:
+      - match: "인기상품"
+        values:
+          sort: "rel"
+          pagingSize: 40
+      - match: "최저가"
+        values:
+          sort: "price_asc"
+          pagingSize: 40
+      - match: "최신순"
+        values:
+          sort: "date"
+          pagingSize: 40
+
+  category_mapping:
+    options:
+      - match: "디지털/가전"
+        value: "digital"
+      - match: "패션의류"
+        value: "fashion"
+      - match: "패션잡화"
+        value: "accessory"
+      - match: "화장품/미용"
+        value: "beauty"
+      - match: "식품"
+        value: "food"
+      - match: "출산/육아"
+        value: "baby"
+      - match: "스포츠/레저"
+        value: "sports"
+      - match: "생활/건강"
+        value: "living"
+      - match: "가구/인테리어"
+        value: "furniture"

@@ -1,13 +1,3 @@
-/* =========================================================
-   ✅ GLOBAL STYLESHEET (Tailwind + Bootstrap harmonized)
-   - Bootstrap 먼저 import
-   - 그 다음 Tailwind 로드
-   - 이후 커스텀 CSS
-========================================================= */
-
-/* 1️⃣ Bootstrap: Tailwind 지시문보다 반드시 위에 있어야 함 */
-@import 'bootstrap/dist/css/bootstrap.min.css';
-
 /* 2️⃣ Tailwind base layers */
 @tailwind base;
 @tailwind components;
@@ -158,4 +148,28 @@ footer {
   text-align: center;
   font-size: 0.85rem;
   padding: 1.5rem 0;
+}
+
+
+/* Hide Next.js Dev Overlay logo */
+[data-nextjs-overlay-root],
+.__next_js__container,
+#__next-build-watcher {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+
+/* ✅ Next.js 개발용 Overlay 완전 차단 */
+#__next-dev-overlay,
+[data-next-overlay],
+#__next-build-watcher,
+#__next-build-error,
+#__next-prerender-indicator,
+#__next-build-indicator {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }

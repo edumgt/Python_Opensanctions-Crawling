@@ -14,6 +14,13 @@ DATASET=${1:-datasets/nl/terrorism_list/nl_terrorism_list.yml}
 
 echo "🚀 Starting OpenSanctions full environment..."
 echo "--------------------------------------------"
+if grep -qi microsoft /proc/version 2>/dev/null; then
+  echo "🧩 WSL detected: Docker Desktop WSL integration or Docker Engine must be running."
+  echo "   Tip: keep the repo under /home to avoid slow Windows filesystem mounts."
+fi
+
+export LOCAL_UID="$(id -u)"
+export LOCAL_GID="$(id -g)"
 
 # 1️⃣ 기존 컨테이너 종료 및 정리
 echo "🧹 Stopping and removing existing containers..."
