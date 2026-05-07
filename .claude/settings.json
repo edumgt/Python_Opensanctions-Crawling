@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker port *)",
+      "Bash(python3 -c \"import hashlib; print\\('hashlib ok'\\)\")",
+      "Bash(curl -s -X POST http://172.19.0.3:11434/api/embeddings -H \"Content-Type: application/json\" -d '{\"model\":\"llama3:latest\",\"prompt\":\"삼성전자\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('dim:', len\\(d['embedding']\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 load_to_qdrant.py --sources naver daum krx --market KOSPI)",
+      "Bash(python3 -c \"import qdrant_client; print\\(qdrant_client.__version__\\); from qdrant_client import QdrantClient; c = QdrantClient\\('localhost', 6333\\); print\\(dir\\(c\\)\\)\")",
+      "Bash(python3 -c \"import qdrant_client; print\\(qdrant_client.__version__\\)\")",
+      "Bash(python3 -c \"from qdrant_client import QdrantClient; c = QdrantClient\\('localhost', 6333\\); methods = [m for m in dir\\(c\\) if 'search' in m.lower\\(\\) or 'query' in m.lower\\(\\)]; print\\(methods\\)\")",
+      "Bash(python3 -c \"from qdrant_client import QdrantClient; c = QdrantClient\\('localhost', 6333\\); print\\([m for m in dir\\(c\\) if 'search' in m.lower\\(\\) or 'query' in m.lower\\(\\)]\\)\")",
+      "Bash(python3 -c \"from qdrant_client import QdrantClient; c = QdrantClient\\(url='http://localhost:6333'\\); print\\([m for m in dir\\(c\\) if 'search' in m.lower\\(\\) or 'query' in m.lower\\(\\)]\\)\")",
+      "Bash(netstat -tln)"
+    ]
+  }
+}

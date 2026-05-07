@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import NewsPanel from "@/components/NewsPanel";
@@ -32,6 +32,14 @@ interface Pagination {
 }
 
 export default function SanctionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>}>
+      <SanctionsPageContent />
+    </Suspense>
+  );
+}
+
+function SanctionsPageContent() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SanctionRecord[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
