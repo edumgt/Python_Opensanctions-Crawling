@@ -1,4 +1,12 @@
-# OpenSanctions 
+# OpenSanctions
+
+---
+
+| ◀ 이전 강의 | 📚 커리큘럼 (3 / 10) | 다음 강의 ▶ |
+|:---|:---:|---:|
+| [← Python 기초 실습](https://github.com/edumgt/python-basic-lab) | **Python 크롤링 실습** | [Docker 실습 →](https://github.com/edumgt/docker-class) |
+
+---
 
 ## 이 저장소 권장 실행 환경 (WSL Ubuntu + Next.js UI)
 
