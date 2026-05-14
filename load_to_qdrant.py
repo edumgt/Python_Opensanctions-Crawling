@@ -107,7 +107,7 @@ def make_point_id(source: str, code: str) -> int:
 # ---------------------------------------------------------------------------
 
 def crawl_and_upload_naver(client: QdrantClient, market: str, max_pages: int = 1) -> int:
-    mod = _load_module("naver_crawler", ROOT / "shopping.naver.com" / "crawler.py")
+    mod = _load_module("naver_crawler", ROOT / "finance.naver.com" / "crawler.py")
     logger.info("[Naver Finance] 크롤링 시작: market=%s", market)
     c = mod.NaverStockCrawler()
     stocks = c.crawl_market(market=market, max_pages=max_pages)
