@@ -1,0 +1,56 @@
+title: KRX ETF Listings
+entry_point: crawler.py
+prefix: krx-etf
+ci_test: false
+
+coverage:
+  frequency: daily
+  start: 2026-05-15
+
+summary: >
+  한국거래소(KRX) 상장 ETF 정보를 수집합니다.
+  Naver Finance ETF API를 통해 현재가, NAV, 3개월 수익률,
+  거래량, 시가총액 등을 수집합니다.
+
+description: |
+  ## 개요
+  KRX에 상장된 ETF 전종목의 시세 및 기본 지표를 수집합니다.
+
+  ## 수집 데이터
+  - 종목 코드 (registrationNumber)
+  - ETF명 (name)
+  - ETF 유형 국내주식형/채권형/섹터/해외 (sector)
+  - 현재가, 등락률, NAV, 3개월 수익률, 거래량, 시가총액 (notes)
+
+  ## ETF 탭 코드 (etf_tab)
+  - 0: 전체
+  - 1: 국내 주식형
+  - 2: 국내 채권형
+  - 3: 섹터/테마
+  - 4: 해외
+
+  ## 주의사항
+  - 수집한 데이터는 학습·연구 목적으로만 사용해야 합니다.
+
+publisher:
+  name: 한국거래소
+  name_en: Korea Exchange
+  acronym: KRX
+  url: https://www.krx.co.kr
+  country: kr
+  official: false
+
+tags:
+  - finance
+  - etf
+  - krx
+
+url: https://www.krx.co.kr
+
+data:
+  url: https://finance.naver.com/api/sise/etfItemList.nhn
+  format: JSON
+  lang: kor
+
+config:
+  etf_tab: 0

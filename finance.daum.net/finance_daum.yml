@@ -1,0 +1,53 @@
+title: Daum Finance Stock Market Listings
+entry_point: crawler.py
+prefix: daum-stock
+ci_test: false
+
+coverage:
+  frequency: daily
+  start: 2026-05-15
+
+summary: >
+  다음 금융(finance.daum.net) 호환 주식 정보 크롤러.
+  Naver Finance 시가총액 페이지와 api.finance.naver.com을 통해
+  KOSPI/KOSDAQ 상장 종목의 시세 및 재무 지표를 수집합니다.
+
+description: |
+  ## 개요
+  finance.daum.net API는 Kakao 인증이 필요하므로,
+  동일한 데이터 소스인 Naver Finance를 통해 수집합니다.
+
+  ## 수집 데이터
+  - 종목 코드 (registrationNumber)
+  - 종목명 (name)
+  - 시장 구분 KOSPI/KOSDAQ (sector)
+  - 현재가, 등락률, 시가총액, 거래량, 외국인비율 (HTML 파싱)
+  - PER, PBR, EPS (api.finance.naver.com 보강)
+
+  ## 주의사항
+  - 수집한 데이터는 학습·연구 목적으로만 사용해야 합니다.
+  - robots.txt 및 이용약관을 준수하여 적절한 딜레이를 두고 요청합니다.
+
+publisher:
+  name: 카카오 주식회사
+  name_en: Kakao Corp.
+  url: https://finance.daum.net
+  country: kr
+  official: false
+
+tags:
+  - finance
+  - stock
+  - kospi
+  - kosdaq
+
+url: https://finance.daum.net
+
+data:
+  url: https://finance.naver.com/sise/sise_market_sum.naver
+  format: HTML
+  lang: kor
+
+config:
+  market: KOSDAQ
+  max_pages: 1
