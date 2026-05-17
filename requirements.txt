@@ -1,0 +1,7 @@
+numpy
+qdrant-client
+requests
+beautifulsoup4
+lxml
+selenium
+webdriver-manager

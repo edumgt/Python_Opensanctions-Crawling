@@ -107,7 +107,7 @@ def make_point_id(source: str, code: str) -> int:
 # ---------------------------------------------------------------------------
 
 def crawl_and_upload_naver(client: QdrantClient, market: str, max_pages: int = 1) -> int:
-    mod = _load_module("naver_crawler", ROOT / "finance.naver.com" / "crawler.py")
+    mod = _load_module("naver_crawler", ROOT / "finance.naver.com" / "crawler2.py")
     logger.info("[Naver Finance] 크롤링 시작: market=%s", market)
     c = mod.NaverStockCrawler()
     stocks = c.crawl_market(market=market, max_pages=max_pages)
@@ -115,7 +115,7 @@ def crawl_and_upload_naver(client: QdrantClient, market: str, max_pages: int = 1
 
 
 def crawl_and_upload_daum(client: QdrantClient, market: str, max_pages: int = 1) -> int:
-    mod = _load_module("daum_crawler", ROOT / "finance.daum.net" / "crawler.py")
+    mod = _load_module("daum_crawler", ROOT / "finance.daum.net" / "crawler2.py")
     logger.info("[Daum Finance] 크롤링 시작: market=%s", market)
     c = mod.DaumStockCrawler(delay=0.2)
     stocks = c.crawl_market(market=market, max_pages=max_pages)
@@ -123,7 +123,7 @@ def crawl_and_upload_daum(client: QdrantClient, market: str, max_pages: int = 1)
 
 
 def crawl_and_upload_krx(client: QdrantClient, market: str) -> int:
-    mod = _load_module("krx_crawler", ROOT / "krx.co.kr" / "crawler.py")
+    mod = _load_module("krx_crawler", ROOT / "krx.co.kr" / "crawler2.py")
     logger.info("[KRX] ETF 크롤링 시작")
     c = mod.KRXStockCrawler()
     stocks = c.crawl_market(tab=0)
@@ -152,7 +152,20 @@ def _upload_stocks(client: QdrantClient, stocks, source: str, code_field: str) -
                 "current_price": getattr(stock, "current_price", 0),
                 "change_rate": getattr(stock, "change_rate", 0.0),
                 "volume": getattr(stock, "volume", 0),
+                "trading_value": getattr(stock, "trading_value", 0),
                 "market_cap": getattr(stock, "market_cap", 0),
+                "shares_outstanding": getattr(stock, "shares_outstanding", 0),
+                "foreign_ratio": getattr(stock, "foreign_ratio", 0.0),
+                "per": getattr(stock, "per", 0.0),
+                "pbr": getattr(stock, "pbr", 0.0),
+                "eps": getattr(stock, "eps", 0),
+                "roe": getattr(stock, "roe", 0.0),
+                "dividend_yield": getattr(stock, "dividend_yield", 0.0),
+                "nav": getattr(stock, "nav", 0.0),
+                "nav_diff": getattr(stock, "nav_diff", 0.0),
+                "three_month_earn_rate": getattr(stock, "three_month_earn_rate", 0.0),
+                "six_month_earn_rate": getattr(stock, "six_month_earn_rate", 0.0),
+                "one_year_earn_rate": getattr(stock, "one_year_earn_rate", 0.0),
                 "crawled_at": getattr(stock, "crawled_at", ""),
             },
         )
@@ -224,17 +237,17 @@ def main():
         help="크롤링 소스 (기본값: naver daum krx)",
     )
     parser.add_argument(
-        "--market",
-        type=str,
+        "--markets",
+        nargs="+",
         choices=["KOSPI", "KOSDAQ"],
-        default="KOSPI",
-        help="수집할 시장 (기본값: KOSPI)",
+        default=["KOSPI", "KOSDAQ"],
+        help="수집할 시장 (기본값: KOSPI KOSDAQ)",
     )
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=1,
-        help="Naver/Daum 최대 크롤링 페이지 수 (기본값: 1)",
+        default=4,
+        help="Naver/Daum 최대 크롤링 페이지 수 (기본값: 4, 페이지당 ~50종목)",
     )
     parser.add_argument(
         "--qdrant-url",
@@ -250,19 +263,23 @@ def main():
     ensure_collection(client)
 
     total = 0
+    krx_done = False
     for source in args.sources:
-        try:
-            if source == "naver":
-                n = crawl_and_upload_naver(client, args.market, args.max_pages)
-            elif source == "daum":
-                daum_market = "KOSDAQ" if args.market == "KOSPI" else "KOSPI"
-                n = crawl_and_upload_daum(client, daum_market, args.max_pages)
-            elif source == "krx":
-                n = crawl_and_upload_krx(client, args.market)
-            total += n
-            time.sleep(REQUEST_DELAY)
-        except Exception as exc:
-            logger.error("[%s] 오류 발생: %s", source, exc, exc_info=True)
+        for market in args.markets:
+            try:
+                if source == "naver":
+                    n = crawl_and_upload_naver(client, market, args.max_pages)
+                elif source == "daum":
+                    n = crawl_and_upload_daum(client, market, args.max_pages)
+                elif source == "krx":
+                    if krx_done:
+                        continue
+                    n = crawl_and_upload_krx(client, market)
+                    krx_done = True
+                total += n
+                time.sleep(REQUEST_DELAY)
+            except Exception as exc:
+                logger.error("[%s/%s] 오류 발생: %s", source, market, exc, exc_info=True)
 
     logger.info("전체 완료: 총 %d개 포인트 적재", total)
     verify_collection(client)

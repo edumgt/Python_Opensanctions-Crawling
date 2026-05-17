@@ -2,16 +2,11 @@
 Daum Finance (finance.daum.net) Stock Information Crawler v2
 Selenium + BeautifulSoup4 기반.
 
-lxml(crawler.py) 대비 변경 사항:
-- Selenium headless Chrome으로 페이지 렌더링 후 BS4로 파싱
-- foreign_ratio 버그 수정: API quant(거래량) 오매핑 → HTML cells[8]에서 직접 추출
-- resp.encoding 명시 불필요 (Selenium은 렌더링된 DOM 사용)
-
 Usage:
     python crawler2.py [--market MARKET] [--max-pages MAX_PAGES] [--output-format FORMAT]
 
 Examples:
-    python crawler2.py --market KOSDAQ --max-pages 2
+    python crawler2.py --market KOSDAQ --max-pages 4
     python crawler2.py --market KOSPI --output-format json
 """
 
@@ -68,10 +63,14 @@ class StockInfo:
     change_rate: float = 0.0
     volume: int = 0
     market_cap: int = 0
+    shares_outstanding: int = 0   # 상장주식수(천주)
     foreign_ratio: float = 0.0
     per: float = 0.0
-    pbr: float = 0.0
-    eps: int = 0
+    pbr: float = 0.0              # 주가순자산비율 (API)
+    eps: int = 0                  # 주당순이익 (API)
+    roe: float = 0.0              # 자기자본이익률 (HTML)
+    dividend_yield: float = 0.0   # 배당수익률 (API)
+    trading_value: int = 0        # 거래대금(원) (API)
     crawled_at: str = ""
 
 
@@ -89,13 +88,11 @@ def _build_driver() -> webdriver.Chrome:
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
-    # DOM ready 시점에 제어 반환 — 이미지·폰트 로드 완료를 기다리지 않음
     opts.page_load_strategy = "eager"
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=opts)
 
-    # CDP로 CSS·폰트·미디어 차단 (이미지는 --blink-settings으로 처리)
     driver.execute_cdp_cmd("Network.enable", {})
     driver.execute_cdp_cmd("Network.setBlockedURLs", {
         "urls": ["*.css", "*.woff", "*.woff2", "*.ttf", "*.eot",
@@ -107,8 +104,8 @@ def _build_driver() -> webdriver.Chrome:
 class DaumStockCrawler:
     """
     다음 금융 호환 주식 크롤러 (Selenium + BeautifulSoup4).
-    Naver Finance 시가총액 페이지에서 종목 목록과 외국인비율을 가져오고,
-    api.finance.naver.com에서 PER/PBR/EPS 등 상세 지표를 보강합니다.
+    Naver Finance 시가총액 페이지에서 종목 목록을 가져오고,
+    api.finance.naver.com에서 PER/PBR/EPS/배당수익률 등 상세 지표를 보강합니다.
     """
 
     def __init__(self, delay: float = REQUEST_DELAY):
@@ -128,7 +125,7 @@ class DaumStockCrawler:
             self._driver.quit()
             self._driver = None
 
-    def crawl_market(self, market: str = "KOSDAQ", max_pages: int = 1) -> List[StockInfo]:
+    def crawl_market(self, market: str = "KOSDAQ", max_pages: int = 4) -> List[StockInfo]:
         """시장(KOSPI/KOSDAQ)의 주식 정보를 수집합니다."""
         market_map = {"KOSPI": "0", "KOSDAQ": "1"}
         sosok = market_map.get(market.upper(), "1")
@@ -157,8 +154,6 @@ class DaumStockCrawler:
                     logger.info("  더 이상 종목이 없습니다. 크롤링 종료.")
                     break
 
-                items = self._enrich_with_detail(items)
-
                 all_stocks.extend(items)
                 logger.info("  %d개 종목 수집 (누적 %d개)", len(items), len(all_stocks))
 
@@ -166,6 +161,9 @@ class DaumStockCrawler:
                     time.sleep(self.delay)
         finally:
             self.close()
+
+        logger.info("API 상세 지표 보강 시작 (%d종목)...", len(all_stocks))
+        all_stocks = self._enrich_with_detail(all_stocks)
 
         self.stocks.extend(all_stocks)
         logger.info("크롤링 완료: 총 %d개 종목 수집", len(all_stocks))
@@ -208,8 +206,11 @@ class DaumStockCrawler:
                 current_price=_to_int(cells[2]),
                 change_rate=_to_float(cells[4]),
                 market_cap=_to_int(cells[6]),
+                shares_outstanding=_to_int(cells[7]),
                 foreign_ratio=_to_float(cells[8]),
                 volume=_to_int(cells[9]),
+                per=_to_float(cells[10]) if len(cells) > 10 else 0.0,
+                roe=_to_float(cells[11]) if len(cells) > 11 else 0.0,
                 crawled_at=now,
             )
             stocks.append(stock)
@@ -217,13 +218,14 @@ class DaumStockCrawler:
         return stocks
 
     def _enrich_with_detail(self, stocks: List[StockInfo]) -> List[StockInfo]:
-        """api.finance.naver.com에서 PER, PBR, EPS 지표를 보강합니다.
+        """api.finance.naver.com에서 PBR, EPS, 배당수익률, 거래대금을 보강합니다.
 
         API 응답 필드:
           per, pbr, eps: 재무지표
-          quant: 거래량 (외국인비율 아님 — foreign_ratio는 HTML에서 수집)
+          dividendYield: 배당수익률
+          amount: 거래대금
         """
-        for stock in stocks:
+        for i, stock in enumerate(stocks):
             if not stock.symbol_code:
                 continue
             try:
@@ -234,12 +236,17 @@ class DaumStockCrawler:
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    stock.per = _to_float(str(data.get("per", 0)))
                     stock.pbr = _to_float(str(data.get("pbr", 0)))
                     stock.eps = _to_int(str(data.get("eps", 0)))
+                    stock.dividend_yield = _to_float(str(data.get("dividendYield", 0)))
+                    stock.trading_value = _to_int(str(data.get("amount", 0)))
             except Exception as exc:
                 logger.debug("상세 지표 수집 실패 (%s): %s", stock.symbol_code, exc)
+
+            if (i + 1) % 20 == 0:
+                logger.info("  API 보강 진행: %d/%d", i + 1, len(stocks))
             time.sleep(self.delay)
+
         return stocks
 
     def export_json(self, filepath: str) -> None:
@@ -262,17 +269,21 @@ class DaumStockCrawler:
         for stock in self.stocks:
             el = ET.SubElement(root, "Stock")
             el.set("code", stock.symbol_code)
-            _add_xml_element(el, "Name", stock.name)
-            _add_xml_element(el, "Market", stock.market)
-            _add_xml_element(el, "CurrentPrice", str(stock.current_price))
-            _add_xml_element(el, "ChangeRate", str(stock.change_rate))
-            _add_xml_element(el, "Volume", str(stock.volume))
-            _add_xml_element(el, "MarketCap", str(stock.market_cap))
-            _add_xml_element(el, "ForeignRatio", str(stock.foreign_ratio))
-            _add_xml_element(el, "PER", str(stock.per))
-            _add_xml_element(el, "PBR", str(stock.pbr))
-            _add_xml_element(el, "EPS", str(stock.eps))
-            _add_xml_element(el, "CrawledAt", stock.crawled_at)
+            for tag, val in [
+                ("Name", stock.name), ("Market", stock.market),
+                ("CurrentPrice", str(stock.current_price)),
+                ("ChangeRate", str(stock.change_rate)),
+                ("Volume", str(stock.volume)),
+                ("MarketCap", str(stock.market_cap)),
+                ("SharesOutstanding", str(stock.shares_outstanding)),
+                ("ForeignRatio", str(stock.foreign_ratio)),
+                ("PER", str(stock.per)), ("PBR", str(stock.pbr)),
+                ("EPS", str(stock.eps)), ("ROE", str(stock.roe)),
+                ("DividendYield", str(stock.dividend_yield)),
+                ("TradingValue", str(stock.trading_value)),
+                ("CrawledAt", stock.crawled_at),
+            ]:
+                _add_xml_element(el, tag, val)
             if stock.symbol_code:
                 _add_xml_element(
                     el, "StockUrl",
@@ -317,7 +328,7 @@ def _to_float(text: str) -> float:
 def crawl(context) -> None:
     """zavod 프레임워크 호환 crawl 함수"""
     market = context.dataset.config.get("market", "KOSDAQ")
-    max_pages = context.dataset.config.get("max_pages", 1)
+    max_pages = context.dataset.config.get("max_pages", 4)
 
     context.log.info(f"다음 금융 크롤링 시작: market={market}")
 
@@ -327,7 +338,8 @@ def crawl(context) -> None:
     for stock in stocks:
         context.log.info(
             f"종목: {stock.name}({stock.symbol_code}) | 현재가: {stock.current_price:,}원 | "
-            f"PER: {stock.per} | PBR: {stock.pbr} | 외국인: {stock.foreign_ratio}%"
+            f"PER: {stock.per} | PBR: {stock.pbr} | ROE: {stock.roe}% | "
+            f"배당수익률: {stock.dividend_yield}% | 외국인: {stock.foreign_ratio}%"
         )
 
     context.log.info(f"크롤링 완료: 총 {len(stocks)}개 종목 수집")
@@ -339,12 +351,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 예시:
-  python crawler2.py --market KOSDAQ --max-pages 2
+  python crawler2.py --market KOSDAQ --max-pages 4
   python crawler2.py --market KOSPI --output-format json
         """,
     )
     parser.add_argument("--market", type=str, choices=["KOSPI", "KOSDAQ"], default="KOSDAQ")
-    parser.add_argument("--max-pages", type=int, default=1)
+    parser.add_argument("--max-pages", type=int, default=4)
     parser.add_argument("--output-format", type=str, choices=["json", "xml", "both"], default="both")
     parser.add_argument("--output-dir", type=str, default=".")
 

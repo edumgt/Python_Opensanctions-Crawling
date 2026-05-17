@@ -5,6 +5,7 @@ networks:
     driver: bridge
 
 services:
+  # ── PostgreSQL (zavod 메타데이터 저장소) ─────────────────────────────────
   db:
     image: postgres:16
     environment:
@@ -21,6 +22,7 @@ services:
     networks:
       - appnet
 
+  # ── Zavod ETL (OpenSanctions 데이터 수집) ────────────────────────────────
   zavod:
     image: ghcr.io/opensanctions/opensanctions:latest
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
@@ -45,8 +47,8 @@ services:
 
         for file in $(find /opensanctions/datasets -type f -name '*.yml' ! -path '*/_*/*'); do
           BASENAME=$(basename $$file)
-          
-          
+
+
           if [[ $$BASENAME == 'ru_nsd_isin.yml' || $$BASENAME == 'cz_business_register.yml' || $$BASENAME == 'us_corpwatch.yml' || $$BASENAME == 'lv_business_register.yml' || $$BASENAME == 'lv_business_register.yml' || $$BASENAME == 'md_companies.yml' || $$BASENAME == 'gb_fca_firds.yml' || $$BASENAME == 'cy_companies.yml' ]]; then
             echo '🚫 Skipping excluded dataset: '$$file;
             continue;
@@ -76,6 +78,7 @@ services:
         echo '🎉 All datasets processed. Failures logged in failed_datasets.md (host directory)'
       "
 
+  # ── Zavod UI (8899 포트로 노출) ──────────────────────────────────────────
   web:
     build:
       context: ./ui
@@ -83,12 +86,36 @@ services:
       ZAVOD_DATABASE_URI: ${ZAVOD_DATABASE_URI:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dev}}
       ZAVOD_ALLOW_UNAUTHENTICATED: ${ZAVOD_ALLOW_UNAUTHENTICATED:-true}
     ports:
-      - "3000:3000"
+      - "8899:3000"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - appnet
+
+  # ── Finance Crawler (KOSPI/KOSDAQ → Qdrant) ──────────────────────────────
+  # docker compose up 시 자동 실행 → 크롤링 완료 후 컨테이너 종료
+  finance-crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile.finance
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./load_to_qdrant.py:/app/load_to_qdrant.py
+      - ./finance.naver.com:/app/finance.naver.com
+      - ./finance.daum.net:/app/finance.daum.net
+      - ./krx.co.kr:/app/krx.co.kr
+    networks:
+      - appnet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: "no"
+    command: >
+      python load_to_qdrant.py
+        --sources naver daum krx
+        --markets KOSPI KOSDAQ
+        --qdrant-url http://host.docker.internal:6333
 
 volumes:
   postgres_data:
